@@ -1,6 +1,7 @@
 [package]
 name = "mal-rust"
 version = "0.1.0"
-authors = ["CodeIsLove"]
+authors = ["ericlovesmath"]
 
 [dependencies]
+rustyline = "13.0.0"

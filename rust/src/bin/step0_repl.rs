@@ -1,35 +1,42 @@
-extern crate mal_rust;
+extern crate rustyline;
 
-use std::io::{stdin, stdout, Write};
+use rustyline::error::ReadlineError;
+use rustyline::DefaultEditor;
 
-fn read(text: &str) -> &str {
+const HIST_PATH: &str = ".mal-history";
+
+fn read(text: String) -> String {
     text
 }
-fn eval(text: &str) -> &str {
+fn eval(text: String) -> String {
     text
 }
-fn print(text: &str) -> &str {
+fn print(text: String) -> String {
     text
 }
-
-fn rep(input: &str) -> &str {
+fn rep(input: String) -> String {
     print(eval(read(input)))
 }
 
-fn main() {
-    let stdin = stdin();
-    let mut stdout = stdout();
-    let mut buf = String::new();
-    loop {
-        print!("user> ");
-        stdout.flush().expect("Failed to flush()");
-
-        buf.clear();
-        match stdin.read_line(&mut buf) {
-            Ok(0) => break,
-            Ok(_) => (),
-            Err(err) => panic!("Failed to read_line(), {}", err),
-        }
-        print!("{}", rep(&buf))
+fn main() -> Result<(), ReadlineError> {
+    let mut rl = DefaultEditor::new()?;
+    if rl.load_history(HIST_PATH).is_err() {
+        eprintln!("History file '{}' not found", HIST_PATH);
     }
+    loop {
+        match rl.readline("user> ") {
+            Ok(buf) => {
+                if buf.is_empty() {
+                    break;
+                }
+                rl.add_history_entry(buf.as_str())?;
+                rl.save_history(HIST_PATH)?;
+                println!("{}", rep(buf));
+            }
+            Err(ReadlineError::Interrupted) => continue,
+            Err(ReadlineError::Eof) => break,
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(())
 }
