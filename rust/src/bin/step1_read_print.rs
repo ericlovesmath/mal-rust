@@ -1,19 +1,16 @@
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
 
+use mal_rust::parser::Sexp;
+use mal_rust::tokenizer::Tokenizer;
+
 const HIST_PATH: &str = ".mal-history";
 
-fn read(text: String) -> String {
-    text
-}
-fn eval(text: String) -> String {
-    text
-}
-fn print(text: String) -> String {
-    text
-}
 fn rep(input: String) -> String {
-    print(eval(read(input)))
+    match Sexp::read_from(&mut Tokenizer::new(input)) {
+        Ok(s) => s.to_string(),
+        Err(e) => format!("[ERROR] {}", e),
+    }
 }
 
 fn main() -> Result<(), ReadlineError> {

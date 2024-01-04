@@ -1,11 +1,11 @@
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::collections::VecDeque;
+
+#[derive(Debug, PartialEq)]
 
 /** Reads tokens from given string */
-struct Tokenizer {
-    tokens: Vec<String>,
-    pos: usize,
-}
+pub struct Tokenizer(VecDeque<String>);
 
 lazy_static! {
     static ref TOKENIZER_RE: Regex =
@@ -16,34 +16,27 @@ lazy_static! {
 impl Tokenizer {
     /** Turns `s` into tokens to be parsed */
     pub fn new(s: String) -> Self {
-        let tokens = TOKENIZER_RE
-            .captures_iter(&s)
-            .map(|c| {
-                let (_, [token]) = c.extract();
-                token.to_string()
-            })
-            .collect();
-        Self { tokens, pos: 0 }
+        Self(
+            TOKENIZER_RE
+                .captures_iter(&s)
+                .map(|c| {
+                    let (_, [token]) = c.extract();
+                    token.to_string()
+                })
+                .collect(),
+        )
     }
 
-    /** Returns current `token`, advances `Tokenizer`.
-    Returns `None` if Tokenizer is completely consumed. */
-    pub fn next(&mut self) -> Option<&str> {
-        if self.pos >= self.tokens.len() {
-            return None;
-        };
-        let token = &self.tokens[self.pos];
-        self.pos += 1;
-        Some(token)
-    }
-
-    /** Returns current token, doesn't advance Tokenizer
-    Returns `None` if Tokenizer is completely consumed. */
     pub fn peek(&mut self) -> Option<&str> {
-        if self.pos >= self.tokens.len() {
-            return None;
-        };
-        Some(&self.tokens[self.pos])
+        self.0.front().map(|s| s.as_str())
+    }
+}
+
+impl Iterator for Tokenizer {
+    type Item = String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.pop_front()
     }
 }
 
@@ -53,10 +46,10 @@ mod tests {
 
     fn test(test: &str, expect: &str) {
         assert_eq!(
-            Tokenizer::new(String::from(test)).tokens,
+            Tokenizer::new(String::from(test)).0,
             String::from(expect)
                 .split(' ')
-                .map(|s| s.to_string())
+                .map(String::from)
                 .collect::<Vec<String>>()
         );
     }
@@ -84,22 +77,19 @@ mod tests {
             ),
         );
 
-        assert!(Tokenizer::new(String::new()).tokens.is_empty());
+        assert!(Tokenizer::new(String::new()).0.is_empty());
     }
 
     #[test]
-    fn test_next_peek() {
-        let mut tk = Tokenizer::new(String::from(" a b   c d     "));
-        assert_eq!(tk.peek(), Some("a"));
-        assert_eq!(tk.next(), Some("a"));
-        assert_eq!(tk.peek(), Some("b"));
-        assert_eq!(tk.next(), Some("b"));
-        assert_eq!(tk.next(), Some("c"));
-        assert_eq!(tk.peek(), Some("d"));
-        assert_eq!(tk.next(), Some("d"));
-        assert_eq!(tk.peek(), None);
+    fn test_iterator() {
+        let mut tk = Tokenizer::new(String::from(" a b (c   d)   "));
+        assert_eq!(tk.next(), Some(String::from("a")));
+        assert_eq!(tk.next(), Some(String::from("b")));
+        assert_eq!(tk.next(), Some(String::from("(")));
+        assert_eq!(tk.next(), Some(String::from("c")));
+        assert_eq!(tk.next(), Some(String::from("d")));
+        assert_eq!(tk.next(), Some(String::from(")")));
         assert_eq!(tk.next(), None);
         assert_eq!(tk.next(), None);
-        assert_eq!(tk.peek(), None);
     }
 }
