@@ -1,6 +1,12 @@
 use crate::tokenizer::Tokenizer;
+use lazy_static::lazy_static;
+use regex::Regex;
 
-// Tests ran through `make test`
+lazy_static! {
+    static ref INTEGER_RE: Regex = Regex::new(r"^-?\d+$").unwrap();
+    static ref COMMENT_RE: Regex = Regex::new(r"^;.*$").unwrap();
+    static ref KEYWORD_RE: Regex = Regex::new(r"^:.+$").unwrap();
+}
 
 #[derive(Debug, PartialEq)]
 pub enum Sexp {
@@ -10,6 +16,7 @@ pub enum Sexp {
     Sexps(Vec<Sexp>),
     Vec(Vec<Sexp>),
     Map(Vec<Sexp>),
+    Keyword(String),
     Nil,
 }
 
@@ -30,6 +37,7 @@ impl ToString for Sexp {
             Sexp::Sexps(tokens) => format!("({})", sexps_to_string(tokens)),
             Sexp::Map(tokens) => format!("{{{}}}", sexps_to_string(tokens)),
             Sexp::Vec(tokens) => format!("[{}]", sexps_to_string(tokens)),
+            Sexp::Keyword(sym) => format!(":{}", sym),
             Sexp::Nil => "nil".to_string(),
         }
     }
@@ -84,7 +92,14 @@ impl Sexp {
                         .collect::<Result<Vec<Sexp>, _>>()
                         .map(Sexp::Sexps)
                 }
-                comment if comment.starts_with(';') => Ok(Sexp::Nil),
+                comment if COMMENT_RE.is_match(comment) => Ok(Sexp::Nil),
+                int if INTEGER_RE.is_match(int) => Ok(Sexp::Integer(
+                    int.parse::<i64>()
+                        .expect("Error: Failed to parse to i64, but matched INTEGER_RE"),
+                )),
+                keyword if KEYWORD_RE.is_match(keyword) => {
+                    Ok(Sexp::Keyword(keyword[1..].to_string()))
+                }
                 _ => Ok(Sexp::Symbol(token)),
             },
             None => Err("Unexpected EOF".to_string()),
