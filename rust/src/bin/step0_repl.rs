@@ -3,17 +3,8 @@ use rustyline::DefaultEditor;
 
 const HIST_PATH: &str = ".mal-history";
 
-fn read(text: String) -> String {
-    text
-}
-fn eval(text: String) -> String {
-    text
-}
-fn print(text: String) -> String {
-    text
-}
 fn rep(input: String) -> String {
-    print(eval(read(input)))
+    input
 }
 
 fn main() -> Result<(), ReadlineError> {

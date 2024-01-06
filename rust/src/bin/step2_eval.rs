@@ -1,3 +1,4 @@
+use mal_rust::env::{evaluate, get_repl_env};
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
 
@@ -7,8 +8,12 @@ use mal_rust::types::Sexp;
 const HIST_PATH: &str = ".mal-history";
 
 fn rep(input: String) -> String {
+    // TODO: Make this... better
     match Sexp::read_from(&mut Tokenizer::new(input)) {
-        Ok(s) => s.to_string(),
+        Ok(ast) => match evaluate(ast, &get_repl_env()) {
+            Ok(s) => s.to_string(),
+            Err(e) => format!("[ERROR] {}", e),
+        },
         Err(e) => format!("[ERROR] {}", e),
     }
 }

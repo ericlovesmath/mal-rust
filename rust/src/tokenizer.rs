@@ -2,8 +2,6 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::VecDeque;
 
-#[derive(Debug, PartialEq)]
-
 /** Reads tokens from given string */
 pub struct Tokenizer(VecDeque<String>);
 

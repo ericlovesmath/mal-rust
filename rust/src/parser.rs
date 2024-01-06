@@ -1,4 +1,5 @@
 use crate::tokenizer::Tokenizer;
+use crate::types::Sexp;
 use lazy_static::lazy_static;
 use regex::Regex;
 
@@ -6,41 +7,6 @@ lazy_static! {
     static ref INTEGER_RE: Regex = Regex::new(r"^-?\d+$").unwrap();
     static ref COMMENT_RE: Regex = Regex::new(r"^;.*$").unwrap();
     static ref KEYWORD_RE: Regex = Regex::new(r"^:.+$").unwrap();
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Sexp {
-    Integer(i64),
-    Bool(bool),
-    Symbol(String),
-    Sexps(Vec<Sexp>),
-    Vec(Vec<Sexp>),
-    Map(Vec<Sexp>),
-    Keyword(String),
-    Nil,
-}
-
-fn sexps_to_string(tokens: &[Sexp]) -> String {
-    tokens
-        .iter()
-        .map(|s| s.to_string())
-        .collect::<Vec<String>>()
-        .join(" ")
-}
-
-impl ToString for Sexp {
-    fn to_string(&self) -> String {
-        match self {
-            Sexp::Integer(num) => num.to_string(),
-            Sexp::Bool(bool) => bool.to_string(),
-            Sexp::Symbol(sym) => sym.clone(),
-            Sexp::Sexps(tokens) => format!("({})", sexps_to_string(tokens)),
-            Sexp::Map(tokens) => format!("{{{}}}", sexps_to_string(tokens)),
-            Sexp::Vec(tokens) => format!("[{}]", sexps_to_string(tokens)),
-            Sexp::Keyword(sym) => format!(":{}", sym),
-            Sexp::Nil => "nil".to_string(),
-        }
-    }
 }
 
 fn read_seq(tokenizer: &mut Tokenizer, closer: &str) -> Result<Vec<Sexp>, String> {
@@ -63,7 +29,7 @@ fn read_quote(tokenizer: &mut Tokenizer, repr: &str) -> Result<Sexp, String> {
     let sexp = vec![quote, contents];
     sexp.into_iter()
         .collect::<Result<Vec<Sexp>, _>>()
-        .map(Sexp::Sexps)
+        .map(Sexp::List)
 }
 
 impl Sexp {
@@ -71,7 +37,7 @@ impl Sexp {
     pub fn read_from(tokenizer: &mut Tokenizer) -> Result<Sexp, String> {
         match tokenizer.next() {
             Some(token) => match token.as_str() {
-                "(" => read_seq(tokenizer, ")").map(Sexp::Sexps),
+                "(" => read_seq(tokenizer, ")").map(Sexp::List),
                 "[" => read_seq(tokenizer, "]").map(Sexp::Vec),
                 "{" => read_seq(tokenizer, "}").map(Sexp::Map),
                 "'" => read_quote(tokenizer, "quote"),
@@ -90,7 +56,7 @@ impl Sexp {
                     [quote, symbol, meta]
                         .into_iter()
                         .collect::<Result<Vec<Sexp>, _>>()
-                        .map(Sexp::Sexps)
+                        .map(Sexp::List)
                 }
                 comment if COMMENT_RE.is_match(comment) => Ok(Sexp::Nil),
                 int if INTEGER_RE.is_match(int) => Ok(Sexp::Integer(
