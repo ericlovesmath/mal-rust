@@ -7,15 +7,10 @@ use mal_rust::types::Sexp;
 
 const HIST_PATH: &str = ".mal-history";
 
-fn rep(input: String) -> String {
-    // TODO: Make this... better
-    match Sexp::read_from(&mut Tokenizer::new(input)) {
-        Ok(ast) => match evaluate(ast, &get_repl_env()) {
-            Ok(s) => s.to_string(),
-            Err(e) => format!("[ERROR] {}", e),
-        },
-        Err(e) => format!("[ERROR] {}", e),
-    }
+fn rep(input: String) -> Result<String, String> {
+    let ast = Sexp::read_from(&mut Tokenizer::new(input))?;
+    let output = evaluate(ast, &get_repl_env())?;
+    Ok(output.to_string())
 }
 
 fn main() -> Result<(), ReadlineError> {
@@ -31,7 +26,10 @@ fn main() -> Result<(), ReadlineError> {
                 }
                 rl.add_history_entry(buf.as_str())?;
                 rl.save_history(HIST_PATH)?;
-                println!("{}", rep(buf));
+                match rep(buf) {
+                    Ok(output) => println!("{}", output),
+                    Err(error) => println!("[ERROR] {}", error),
+                };
             }
             Err(ReadlineError::Interrupted) => continue,
             Err(ReadlineError::Eof) => break,

@@ -1,34 +1,27 @@
-use crate::types::{Env, Func, Sexp};
+use crate::types::{Env, Sexp};
 use std::collections::HashMap;
 
 pub fn evaluate(ast: Sexp, env: &Env) -> Result<Sexp, String> {
     match ast {
-        Sexp::List(list) => {
-            // TODO: Has to be a better way than this-
-            if list.is_empty() {
-                Ok(Sexp::List(list))
-            } else {
-                match apply(Sexp::List(list), env) {
-                    Ok(Sexp::List(eval_list)) => match eval_list.first() {
-                        Some(Sexp::Func(func)) => func.run(&eval_list[1..]),
-                        Some(_) => Err("eval_list missing Sexp::Func".to_string()),
-                        None => unreachable!(),
-                    },
-                    Ok(_) => Err("apply() didn't return Sexp::List".to_string()),
-                    Err(s) => Err(s),
-                }
-            }
-        }
+        Sexp::List(list) if list.is_empty() => Ok(Sexp::List(list)),
+        Sexp::List(list) => match apply(Sexp::List(list), env) {
+            Ok(Sexp::List(eval_list)) => match eval_list.first() {
+                Some(Sexp::Func(func)) => func(&eval_list[1..]),
+                Some(_) => Err("eval_list missing Sexp::Func".to_string()),
+                None => unreachable!(),
+            },
+            Ok(_) => Err("apply() didn't return Sexp::List".to_string()),
+            Err(s) => Err(s),
+        },
         _ => apply(ast, env),
     }
 }
 
-// TODO: Remove all String errors, return enum instead
 fn apply(ast: Sexp, env: &Env) -> Result<Sexp, String> {
     match ast {
         Sexp::Symbol(sym) => match env.get(&sym) {
             None => Err(format!("Unknown symbol '{}' found", sym)),
-            Some(func) => Ok(Sexp::Func(func.clone())), // TODO: Make RC Cell
+            Some(func) => Ok(Sexp::Func(*func)), // TODO: Make RC Cell?
         },
         Sexp::List(list) => list
             .into_iter()
@@ -45,23 +38,12 @@ macro_rules! arithmetic_op {
             if let [Sexp::Integer(x), Sexp::Integer(y)] = args {
                 Ok(Sexp::Integer(x $operator y))
             } else {
-                Err(format!("{}() received unexpected input: {:?}", stringify!($func_name), args))
+                Err(
+                    format!("{}() received unexpected inputs: [{}]",
+                    stringify!($func_name),
+                    args.iter().map(|s| s.to_string()).collect::<Vec<_>>().join(" "))
+                )
             }
-        }
-    };
-}
-
-macro_rules! get_env {
-    ($($name:expr => $function:expr, $args:expr;)+) => {
-        {
-            let mut env: Env = HashMap::new();
-            $(
-                env.insert(
-                    $name.to_string(),
-                    Func { nargs: $args, func: $function },
-                );
-            )+
-            env
         }
     };
 }
@@ -69,17 +51,15 @@ macro_rules! get_env {
 arithmetic_op!(add, +);
 arithmetic_op!(subtract, -);
 arithmetic_op!(multiply, *);
-
-// TODO: Div by 0 Error
 arithmetic_op!(divide, /);
 
 pub fn get_repl_env() -> Env {
-    get_env!(
-        "+" => add, 2;
-        "-" => subtract, 2;
-        "*" => multiply, 2;
-        "/" => divide, 2;
-    )
+    let mut env: Env = HashMap::new();
+    env.insert("+".to_string(), add);
+    env.insert("-".to_string(), subtract);
+    env.insert("*".to_string(), multiply);
+    env.insert("/".to_string(), divide);
+    env
 }
 
 #[cfg(test)]
@@ -92,12 +72,31 @@ mod tests {
         let ast = Sexp::read_from(&mut Tokenizer::new(test.to_string())).unwrap();
         let new_ast = evaluate(ast, &get_repl_env()).unwrap();
 
-        assert_eq!(expect, new_ast.to_string());
+        assert_eq!(new_ast.to_string(), expect);
     }
 
     #[test]
-    fn test_add() {
-        test_eq("(+ (+ 1 (- 7 9)) (/ 3 4))", "-1");
+    fn test_basic_repl_env() {
+        test_eq("10", "10");
+        test_eq("(+ 9 3)", "12");
+        test_eq("(- 9 3)", "6");
+        test_eq("(* 9 3)", "27");
+        test_eq("(/ 9 3)", "3");
+        test_eq("(/ (* -4 (- 3 9)) (+ 4 2))", "4");
         test_eq("()", "()");
+    }
+
+    fn test_fail(test: &str) {
+        let ast = Sexp::read_from(&mut Tokenizer::new(test.to_string())).unwrap();
+        assert!(evaluate(ast, &get_repl_env()).is_err());
+    }
+
+    #[test]
+    fn test_repl_env_expect_fail() {
+        test_fail("(+)");
+        test_fail("(+ 1)");
+        test_fail("(+ 1 2 3)");
+        test_fail("(+ + +)");
+        test_fail("(+ + 1 2)");
     }
 }
