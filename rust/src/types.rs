@@ -3,6 +3,7 @@ use std::fmt;
 // TODO: Convert to Error Enum instead of String?
 pub type Func = fn(&[Sexp]) -> Result<Sexp, String>;
 
+// TODO: No clone
 #[derive(PartialEq, Clone)]
 pub enum Sexp {
     Integer(i64),
@@ -16,7 +17,7 @@ pub enum Sexp {
     Nil,
 }
 
-fn list_to_string(tokens: &[Sexp]) -> String {
+pub fn tokens_to_string(tokens: &[Sexp]) -> String {
     tokens
         .iter()
         .map(|s| s.to_string())
@@ -32,9 +33,9 @@ impl fmt::Display for Sexp {
             Sexp::Symbol(sym) => write!(f, "{}", sym),
             Sexp::Keyword(sym) => write!(f, ":{}", sym),
             Sexp::Nil => write!(f, "nil"),
-            Sexp::List(tokens) => write!(f, "({})", list_to_string(tokens)),
-            Sexp::Map(tokens) => write!(f, "{{{}}}", list_to_string(tokens)),
-            Sexp::Vec(tokens) => write!(f, "[{}]", list_to_string(tokens)),
+            Sexp::List(tokens) => write!(f, "({})", tokens_to_string(tokens)),
+            Sexp::Map(tokens) => write!(f, "{{{}}}", tokens_to_string(tokens)),
+            Sexp::Vec(tokens) => write!(f, "[{}]", tokens_to_string(tokens)),
             Sexp::Func(_) => write!(f, "<func>"),
         }
     }

@@ -1,4 +1,4 @@
-use mal_rust::env::{evaluate, Env};
+use mal_rust::env::{evaluate, env_default};
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
 
@@ -9,7 +9,7 @@ const HIST_PATH: &str = ".mal-history";
 
 fn rep(input: String) -> Result<String, String> {
     let ast = Sexp::read_from(&mut Tokenizer::new(input))?;
-    let output = evaluate(ast, &mut Env::default())?;
+    let output = evaluate(ast, env_default())?;
     Ok(output.to_string())
 }
 
