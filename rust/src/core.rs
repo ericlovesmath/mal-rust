@@ -5,20 +5,24 @@ pub fn env_core() -> Env {
     let env = env_new(None);
     {
         let mut env = env.borrow_mut();
-        env.set("+", Sexp::Func(add));
-        env.set("-", Sexp::Func(subtract));
-        env.set("*", Sexp::Func(multiply));
-        env.set("/", Sexp::Func(divide));
-        env.set("prn", Sexp::Func(prn));
-        env.set("list", Sexp::Func(list));
-        env.set("list?", Sexp::Func(is_list));
-        env.set("empty?", Sexp::Func(is_empty));
-        env.set("count", Sexp::Func(count));
-        env.set("=", Sexp::Func(eq));
-        env.set("<", Sexp::Func(lt));
-        env.set(">", Sexp::Func(gt));
-        env.set("<=", Sexp::Func(le));
-        env.set(">=", Sexp::Func(ge));
+        let mut set = |sym, func| env.set(sym, Sexp::Func(func));
+        set("+", add);
+        set("-", subtract);
+        set("*", multiply);
+        set("/", divide);
+        set("prn", prn);
+        set("println", println);
+        set("pr-str", pr_str);
+        set("str", str);
+        set("list", list);
+        set("list?", is_list);
+        set("empty?", is_empty);
+        set("count", count);
+        set("=", eq);
+        set("<", lt);
+        set(">", gt);
+        set("<=", le);
+        set(">=", ge);
     }
     env
 }
@@ -28,10 +32,7 @@ macro_rules! arithmetic_op {
         fn $func(args: &[Sexp]) -> Result<Sexp, String> {
             match args {
                 [Sexp::Integer(x), Sexp::Integer(y)] => Ok(Sexp::Integer(x $op y)),
-                _ => Err(format!(
-                    "{}() received unexpected inputs: [{}]",
-                    stringify!($func), to_str(args)
-                ))
+                _ => Err(format!("{}() received unexpected inputs: [{}]", stringify!($func), to_str(args)))
             }
         }
     };
@@ -47,7 +48,7 @@ macro_rules! cmp {
         fn $func(args: &[Sexp]) -> Result<Sexp, String> {
             match args {
                 [sexp_l, sexp_r] => Ok(Sexp::Bool(sexp_l $op sexp_r)),
-                _ => Err(format!("{} expects 2 args, received {}", stringify!($func), to_str(args))),
+                _ => Err(format!("{} expects 2 args, received {}", stringify!($op), to_str(args))),
             }
         }
     };
@@ -60,8 +61,35 @@ cmp!(gt, >);
 cmp!(ge, >=);
 
 fn prn(args: &[Sexp]) -> Result<Sexp, String> {
-    println!("{}", args.first().unwrap_or(&Sexp::Nil));
+    let Sexp::String(s) = pr_str(args)? else {
+        return Err("prn failed unexpectedly".to_string());
+    };
+    println!("{}", s);
     Ok(Sexp::Nil)
+}
+
+fn println(args: &[Sexp]) -> Result<Sexp, String> {
+    let Sexp::String(s) = str(args)? else {
+        return Err("println failed unexpectedly".to_string());
+    };
+    println!("{}", s);
+    Ok(Sexp::Nil)
+}
+
+fn pr_str(args: &[Sexp]) -> Result<Sexp, String> {
+    Ok(Sexp::String(to_str(args)))
+}
+
+fn str(args: &[Sexp]) -> Result<Sexp, String> {
+    Ok(Sexp::String(
+        args.iter()
+            .map(|s| match s {
+                Sexp::String(s) => s.to_string(),
+                _ => s.to_string(),
+            })
+            .collect::<Vec<String>>()
+            .join(""),
+    ))
 }
 
 fn list(args: &[Sexp]) -> Result<Sexp, String> {
@@ -73,9 +101,7 @@ fn is_list(args: &[Sexp]) -> Result<Sexp, String> {
 }
 
 fn is_empty(args: &[Sexp]) -> Result<Sexp, String> {
-    Ok(Sexp::Bool(
-        matches!(args, [Sexp::List(list)] if list.is_empty()),
-    ))
+    Ok(Sexp::Bool(matches!(args, [Sexp::List(l)] if l.is_empty())))
 }
 
 fn count(args: &[Sexp]) -> Result<Sexp, String> {

@@ -13,6 +13,7 @@ pub enum Sexp {
     Vec(Vec<Sexp>),
     Map(Vec<Sexp>),
     Keyword(String),
+    String(String),
     Func(Func),
     Nil,
 }
@@ -32,6 +33,13 @@ impl fmt::Display for Sexp {
             Sexp::Bool(boolean) => write!(f, "{}", boolean),
             Sexp::Symbol(sym) => write!(f, "{}", sym),
             Sexp::Keyword(sym) => write!(f, ":{}", sym),
+            Sexp::String(s) => write!(
+                f,
+                r#""{}""#,
+                s.replace(r#"\n"#, "\n")
+                    .replace(r#"\""#, "\"")
+                    .replace(r#"\\"#, "\\")
+            ),
             Sexp::Nil => write!(f, "nil"),
             Sexp::List(tokens) => write!(f, "({})", tokens_to_string(tokens)),
             Sexp::Map(tokens) => write!(f, "{{{}}}", tokens_to_string(tokens)),

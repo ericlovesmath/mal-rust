@@ -7,6 +7,7 @@ lazy_static! {
     static ref INTEGER_RE: Regex = Regex::new(r"^-?\d+$").unwrap();
     static ref COMMENT_RE: Regex = Regex::new(r"^;.*$").unwrap();
     static ref KEYWORD_RE: Regex = Regex::new(r"^:.+$").unwrap();
+    static ref STRING_RE: Regex = Regex::new(r#"^".*"$"#).unwrap();
 }
 
 fn read_seq(tokenizer: &mut Tokenizer, closer: &str) -> Result<Vec<Sexp>, String> {
@@ -65,6 +66,9 @@ impl Sexp {
                 )),
                 keyword if KEYWORD_RE.is_match(keyword) => {
                     Ok(Sexp::Keyword(keyword[1..].to_string()))
+                }
+                string if STRING_RE.is_match(string) => {
+                    Ok(Sexp::String(string[1..string.len() - 1].to_string()))
                 }
                 _ => Ok(Sexp::Symbol(token)),
             },
