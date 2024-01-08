@@ -1,27 +1,103 @@
-use crate::types::{Env, Sexp};
+use crate::types::Sexp;
 use std::collections::HashMap;
 
-pub fn evaluate(ast: Sexp, env: &Env) -> Result<Sexp, String> {
+#[derive(Clone)]
+pub struct Env {
+    outer: Option<Box<Env>>,
+    data: HashMap<String, Sexp>,
+}
+
+impl Env {
+    pub fn new(outer: Option<Env>) -> Self {
+        Self {
+            outer: outer.map(Box::new),
+            data: HashMap::new(),
+        }
+    }
+
+    pub fn set(&mut self, symbol: String, sexp: &Sexp) {
+        self.data.insert(symbol, sexp.clone());
+    }
+
+    fn get(&self, symbol: &String) -> Option<Sexp> {
+        match self.data.get(symbol) {
+            None => match &self.outer {
+                None => None,
+                Some(env) => env.get(symbol),
+            },
+            Some(sexp) => Some(sexp.clone()),
+        }
+    }
+}
+
+impl Default for Env {
+    fn default() -> Self {
+        let mut env = Self::new(None);
+        env.set("+".to_string(), &Sexp::Func(add));
+        env.set("-".to_string(), &Sexp::Func(subtract));
+        env.set("*".to_string(), &Sexp::Func(multiply));
+        env.set("/".to_string(), &Sexp::Func(divide));
+        env
+    }
+}
+
+pub fn evaluate(ast: Sexp, env: &mut Env) -> Result<Sexp, String> {
     match ast {
         Sexp::List(list) if list.is_empty() => Ok(Sexp::List(list)),
-        Sexp::List(list) => match apply(Sexp::List(list), env) {
-            Ok(Sexp::List(eval_list)) => match eval_list.first() {
-                Some(Sexp::Func(func)) => func(&eval_list[1..]),
-                Some(_) => Err("eval_list missing Sexp::Func".to_string()),
-                None => unreachable!(),
-            },
-            Ok(_) => Err("apply() didn't return Sexp::List".to_string()),
-            Err(s) => Err(s),
-        },
+        Sexp::List(list) => {
+            // TODO: Improve
+            match list.first().unwrap() {
+                Sexp::Symbol(sym) if sym == "def!" => {
+                    assert_eq!(list.len(), 3);
+                    let eval = evaluate(list.get(2).unwrap().clone(), env)?;
+                    if let Sexp::Symbol(sym) = list.get(1).unwrap().clone() {
+                        env.set(sym, &eval);
+                        Ok(eval)
+                    } else {
+                        panic!("def! failed");
+                    }
+                }
+                Sexp::Symbol(sym) if sym == "let*" => {
+                    assert_eq!(list.len(), 3);
+                    let mut new_env = Env::new(Some(env.clone())); // TODO: RC instead
+                    if let Sexp::List(sub_list) = list.get(1).unwrap().clone() {
+
+                        // Sub eval, same code copy + pasted from def!
+                        // TODO: Move to own function?
+                        for i in 0..(sub_list.len() / 2) {
+                            let sub_eval = evaluate(sub_list.get(2 * i + 1).unwrap().clone(), &mut new_env)?;
+                            if let Sexp::Symbol(sym) = sub_list.get(2 * i).unwrap().clone() {
+                                new_env.set(sym, &sub_eval);
+                            } else {
+                                panic!("let* inner failed");
+                            }
+                        }
+
+                        evaluate(list.get(2).unwrap().clone(), &mut new_env)
+                    } else {
+                        panic!("let* failed");
+                    }
+                }
+                _ => match apply(Sexp::List(list), env) {
+                    Ok(Sexp::List(eval_list)) => match eval_list.first() {
+                        Some(Sexp::Func(func)) => func(&eval_list[1..]),
+                        Some(_) => Err("eval_list missing Sexp::Func".to_string()),
+                        None => unreachable!(),
+                    },
+                    Ok(_) => Err("apply() didn't return Sexp::List".to_string()),
+                    Err(s) => Err(s),
+                },
+            }
+        }
         _ => apply(ast, env),
     }
 }
 
-fn apply(ast: Sexp, env: &Env) -> Result<Sexp, String> {
+fn apply(ast: Sexp, env: &mut Env) -> Result<Sexp, String> {
     match ast {
         Sexp::Symbol(sym) => match env.get(&sym) {
             None => Err(format!("Unknown symbol '{}' found", sym)),
-            Some(func) => Ok(Sexp::Func(*func)), // TODO: Make RC Cell?
+            Some(sexp) => Ok(sexp), // TODO: Make RC Cell?
         },
         Sexp::List(list) => list
             .into_iter()
@@ -53,15 +129,6 @@ arithmetic_op!(subtract, -);
 arithmetic_op!(multiply, *);
 arithmetic_op!(divide, /);
 
-pub fn get_repl_env() -> Env {
-    let mut env: Env = HashMap::new();
-    env.insert("+".to_string(), add);
-    env.insert("-".to_string(), subtract);
-    env.insert("*".to_string(), multiply);
-    env.insert("/".to_string(), divide);
-    env
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -70,7 +137,7 @@ mod tests {
 
     fn test_eq(test: &str, expect: &str) {
         let ast = Sexp::read_from(&mut Tokenizer::new(test.to_string())).unwrap();
-        let new_ast = evaluate(ast, &get_repl_env()).unwrap();
+        let new_ast = evaluate(ast, &mut Env::default()).unwrap();
 
         assert_eq!(new_ast.to_string(), expect);
     }
@@ -88,7 +155,7 @@ mod tests {
 
     fn test_fail(test: &str) {
         let ast = Sexp::read_from(&mut Tokenizer::new(test.to_string())).unwrap();
-        assert!(evaluate(ast, &get_repl_env()).is_err());
+        assert!(evaluate(ast, &mut Env::default()).is_err());
     }
 
     #[test]

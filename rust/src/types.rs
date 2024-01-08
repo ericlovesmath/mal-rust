@@ -1,11 +1,9 @@
-use std::collections::HashMap;
 use std::fmt;
 
 // TODO: Convert to Error Enum instead of String?
 pub type Func = fn(&[Sexp]) -> Result<Sexp, String>;
-pub type Env = HashMap<String, Func>;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub enum Sexp {
     Integer(i64),
     Bool(bool),

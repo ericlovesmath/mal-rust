@@ -7,13 +7,14 @@ use mal_rust::types::Sexp;
 
 const HIST_PATH: &str = ".mal-history";
 
-fn rep(input: String) -> Result<String, String> {
+fn rep(input: String, env: &mut Env) -> Result<String, String> {
     let ast = Sexp::read_from(&mut Tokenizer::new(input))?;
-    let output = evaluate(ast, &mut Env::default())?;
+    let output = evaluate(ast, env)?;
     Ok(output.to_string())
 }
 
 fn main() -> Result<(), ReadlineError> {
+    let mut env = Env::default();
     let mut rl = DefaultEditor::new()?;
     if rl.load_history(HIST_PATH).is_err() {
         eprintln!("History file '{}' not found", HIST_PATH);
@@ -26,7 +27,7 @@ fn main() -> Result<(), ReadlineError> {
                 }
                 rl.add_history_entry(buf.as_str())?;
                 rl.save_history(HIST_PATH)?;
-                match rep(buf) {
+                match rep(buf, &mut env) {
                     Ok(output) => println!("{}", output),
                     Err(error) => println!("[ERROR] {}", error),
                 };
