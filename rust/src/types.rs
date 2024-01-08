@@ -3,8 +3,8 @@ use std::fmt;
 // TODO: Convert to Error Enum instead of String?
 pub type Func = fn(&[Sexp]) -> Result<Sexp, String>;
 
-// TODO: No clone
-#[derive(PartialEq, Clone)]
+// TODO: No clone?
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Sexp {
     Integer(i64),
     Bool(bool),
